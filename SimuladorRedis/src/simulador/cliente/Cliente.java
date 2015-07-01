@@ -1,14 +1,16 @@
 package simulador.cliente;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisDataException;
-import simulador.util.Aleatorio;
 import simulador.util.Configuracion;
+import simulador.util.Utilidades;
 
-public class Cliente {
+public class Cliente extends Thread {
 
 	private	String nombreCliente;
 	private boolean consolaHabilitada=false;
@@ -17,6 +19,21 @@ public class Cliente {
 	Jedis jedis =null;
 	Properties propiedades=null;
 	ControlOperacion controlOperacion=null;
+	
+	public Cliente( ThreadGroup grupoHilo ,Properties propiedades, int idCliente, boolean consolaHabilitada){
+		
+		super(grupoHilo,"");
+		
+		this.propiedades=propiedades;		
+		this.idCliente=idCliente;
+		this.consolaHabilitada=consolaHabilitada;
+		conectar();
+		nombreCliente=asignarNombreCliente();
+		controlOperacion= new ControlOperacion(propiedades);
+		
+		
+	}
+	
 	
 	
 	public void conectar(){
@@ -48,7 +65,7 @@ public class Cliente {
 			e.printStackTrace();
 			
 		}
-		jedis.incr("secuencia");
+		//jedis.incr("secuencia");
 		
 		
 	}
@@ -69,34 +86,37 @@ public class Cliente {
 	
 	public String asignarNombreCliente(){
 		
-		return resolverExpresion(propiedades.getProperty("nombreCliente"));
+		return resolverExpresion(propiedades.getProperty("cliente.nombreCliente"));
 	}
 	
-	public Cliente(){
-		propiedades=Configuracion.getProperties("config.properties");
-		conectar();
-		idCliente=Integer.valueOf(jedis.get("secuencia"));
-		nombreCliente=asignarNombreCliente();
-		controlOperacion= new ControlOperacion(propiedades);
-		
-	}
+	
 	
 	private int generarOperacionAleatoria(){
 		
-		return Aleatorio.generarEnteroAleatorio(0,2);
+		return Utilidades.generarEnteroAleatorio(0,2);
 	}
 	
 	private String generarClaveAleatoria(){
 		
 		String claveGenerada="";		
 		
-		Set<String> listaClaves=jedis.keys("Cliente*");
+		Set<String> listaClaves=jedis.keys(nombreCliente+"*");
 		
 		do{			
-			claveGenerada=nombreCliente+"."+"Clave"+Aleatorio.generarEnteroAleatorio(3);			
+			claveGenerada=nombreCliente+"."+"Clave"+Utilidades.generarEnteroAleatorio(0,1000000);			
 		}while (listaClaves.contains(claveGenerada));			
 		
 		return claveGenerada;
+	}
+	
+	public void presentarTodasClaves(){
+		
+		Set<String> listaClaves=jedis.keys("*");
+		
+		for (String clave : listaClaves) {
+			System.out.println(clave+" tamanio:"+jedis.get(clave).length());
+		}
+		
 	}
 	
 	
@@ -107,12 +127,8 @@ public class Cliente {
 			
 			String clave=generarClaveAleatoria();
 			String valor="0";
-						
-			//presentarMensaje("Se seteara la clave generada="+clave+" valor="+valor);
 			
 			jedisServer.set(clave, valor);
-						
-			//presentarMensaje("Se seteo la clave generada="+clave+" valor="+valor);
 			
 		}
 		
@@ -132,6 +148,25 @@ public class Cliente {
 	}
 	
 	
+	private void ejecutarOperacion(String operacion, String clave, String valor ,Jedis jedisServer ){
+		
+		if ( "set".equals(operacion)){
+			int tamanioValor=Integer.valueOf(valor).intValue();
+			
+			String nuevoValor=new String(new byte[tamanioValor]);
+			
+			jedisServer.set(clave, nuevoValor);
+		}
+		
+		if ( "get".equals(operacion)){
+			
+			jedisServer.get(clave);
+						
+		} 
+		
+		
+	}
+	
 	public void presentarMensaje(String mensaje){
 		if (isConsolaHabilitada()) {
 			System.out.println(nombreCliente+":"+mensaje);				
@@ -142,8 +177,10 @@ public class Cliente {
 	
 	
 	
-	public void ejecutarAleatorio(int cantidadOperaciones){
+	public void ejecutarAleatorio(){
 		
+		
+		int cantidadOperaciones=Integer.valueOf(propiedades.getProperty("cliente.aleatorio.cantidadOperaciones")).intValue();
 		
 	    for (int contador = 1; contador <= cantidadOperaciones; ) {
 			
@@ -167,19 +204,79 @@ public class Cliente {
 	    	
 		}
 	    
-	    controlOperacion.presentarControl();
+	    //controlOperacion.presentarControl();
 	    
 	}
 
-	public void ejecutar(int cantidadOperaciones ){
+	public void ejecutarTrace(){
 		
-		if ("true".equals(propiedades.getProperty("modoTrace"))){
-			System.out.println("Modo trace");
-		}else{
-			ejecutarAleatorio(cantidadOperaciones);
+		String rutaArchivo="";
+		rutaArchivo=propiedades.getProperty("cliente.trace.rutaArchivo");
+		rutaArchivo=rutaArchivo+ resolverExpresion(propiedades.getProperty("cliente.trace.formatoArchivo"));
+		
+		List<String> operacionesTrace=null;
+		
+		try {
+			operacionesTrace = Utilidades.leerArchivo(rutaArchivo);
+		} catch (IOException e) {
+			System.out.println("Error al leer el archivo trace.");
+			e.printStackTrace();
 		}
 		
+		System.out.println(rutaArchivo);
+		for (String valor : operacionesTrace) {			
+			String parametros[]=valor.split(propiedades.getProperty("cliente.trace.separadorColumnasArchivo"));			
+			
+			
+			long tiempoOperacionInicio=System.nanoTime();
+			ejecutarOperacion(parametros[0], parametros[1], parametros[2], jedis);		    	
+	    	long tiempoOperacionFin=System.nanoTime();
+	    	
+	    	controlOperacion.contabilizarNuevaOperacion(parametros[0]);
+	    	
+	    	
+	    	String duracionTexto=String.valueOf(tiempoOperacionFin-tiempoOperacionInicio);
+	    	presentarMensaje("Op:"+parametros[0]+" duracion:"+duracionTexto);
+	    	
+	    	/*
+	    	try {
+	    		long tiempo=100*(idCliente);
+	        	presentarMensaje("Durmiendo "+(tiempo/1000)+" s");
+				Thread.sleep(tiempo);
+			} catch (InterruptedException e) {
+				System.out.println("Interrupcion indesperada");
+				e.printStackTrace();
+			}*/
+	    	
+		}
+		
+		
+		
 	}
+	
+	@Override
+	public void run() {        
+        
+		synchronized(this){
+	        long tiempoInicio=System.nanoTime();
+			
+	        if ("true".equals(propiedades.getProperty("cliente.modoTrace"))){
+				ejecutarTrace();
+			}else{
+				ejecutarAleatorio();
+			}
+	        
+	        //controlOperacion.presentarControl();
+	        
+			long tiempoFin=System.nanoTime();
+			presentarMensaje("Tiempo total de simulacion:"+((tiempoFin-tiempoInicio))+" ns");
+			
+			notify();
+		}
+		
+		
+    }
+	
 
 	public boolean isConsolaHabilitada() {
 		return consolaHabilitada;

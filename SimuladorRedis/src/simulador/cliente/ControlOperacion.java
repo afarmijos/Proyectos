@@ -16,13 +16,13 @@ public class ControlOperacion {
 		
 		cantidadTotalOperaciones=0;
 		
-		nombreOperacionesDefinidas=propiedades.getProperty("operacionesDefinidas").trim().split(";");
+		nombreOperacionesDefinidas=propiedades.getProperty("cliente.operacionesDefinidas").trim().split(";");
 		
 		cantidadOperacionesDefinidas=nombreOperacionesDefinidas.length;
 		
 		controlOperaciones= new double[cantidadOperacionesDefinidas][3];
 		
-		String ponderaciones[]=propiedades.getProperty("ponderacionOperaciones").split(";");
+		String ponderaciones[]=propiedades.getProperty("cliente.aleatorio.ponderacionOperaciones").split(";");
 		
 		for (int i=0;i<ponderaciones.length;i++){
 			controlOperaciones[i][2]=Double.valueOf(ponderaciones[i]).doubleValue();
@@ -52,6 +52,13 @@ public boolean esValidaOperacion(int operacionAEjecutar){
 			controlOperaciones[i][1]=controlOperaciones[i][0]/cantidadTotalOperaciones;
 		
 	}
+	
+	public void contabilizarNuevaOperacion(String operacionEjecutada){
+		
+		contabilizarNuevaOperacion(obtenerIdOperacion(operacionEjecutada));
+		
+	}
+	
 	public void presentarControl(){
 		
 		for (int i=0;i<2;i++){
@@ -65,6 +72,16 @@ public boolean esValidaOperacion(int operacionAEjecutar){
 	
 	public String obtenerNombreOperacion(int operacion){
 		return nombreOperacionesDefinidas[operacion];
+	}
+	
+	public int obtenerIdOperacion(String operacion){
+		int operacionNueva=0;
+		
+		for(int i=0; i<nombreOperacionesDefinidas.length;i++)
+			if (nombreOperacionesDefinidas[i].equals(operacion))
+				operacionNueva=i;
+		
+		return operacionNueva;
 	}
 	
 	public  void prueba( int operacion){

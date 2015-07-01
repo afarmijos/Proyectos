@@ -1,47 +1,65 @@
 package simulador.test;
 
+import java.util.Properties;
+
 import simulador.cliente.Cliente;
+import simulador.util.Configuracion;
 
 public class Prueba {
 
 	
 	
 	public static void main(String[] args) {
+
 		
+		Properties propiedades=Configuracion.getProperties("config.properties");
+		boolean existenClientesPendientes=true;
+		boolean consolaHabilitada=false;
+		int cantidadProcesados=0;
+		int cantidadAProcesar=0;
+		int cantidadAProcesarParalelo=0;
 		
-		Cliente cliente = new Cliente();
+		cantidadAProcesar=Integer.valueOf(propiedades.getProperty("cliente.cantidadClientes")).intValue();
 		
-		/*
-		prueba(cliente,0);
-		prueba(cliente,0);
-		prueba(cliente,1);
-		prueba(cliente,1);
-		prueba(cliente,1);
-		prueba(cliente,0);
-		prueba(cliente,1);
-		prueba(cliente,0);
-		prueba(cliente,0);
-		prueba(cliente,1);
-		prueba(cliente,0);
-		prueba(cliente,0);
+		cantidadAProcesarParalelo=Integer.valueOf(propiedades.getProperty("cliente.cantidadClientesParalelo")).intValue();
 		
-		cliente.presentarControl();
-		*/
-		long tiempoInicio=System.nanoTime();
-		cliente.setConsolaHabilitada(true);
-		cliente.ejecutar(800);
-		long tiempoFin=System.nanoTime();
+		consolaHabilitada="true".equals(propiedades.getProperty("cliente.consolaHabilitada"));
 		
-		System.out.println("Tiempo total de simulacion:"+((tiempoFin-tiempoInicio))+" ns");
+		ThreadGroup grupo = new ThreadGroup("Clientes");
 		
-		/*
-		Properties propiedades= new Properties();
-		propiedades.setProperty("numeroClientes", "1");
-		propiedades.setProperty("modoSimulacion", "trace");
-		Configuracion.safeProperties(propiedades, "config.properties");
-		*/
-		
-		//System.out.println("Prueba:"+Configuracion.getProperties("config.properties").getProperty("modoSimulacion"));
+		do{
+			
+			cantidadAProcesarParalelo=cantidadAProcesarParalelo-grupo.activeCount();
+			
+			if (cantidadAProcesarParalelo>(cantidadAProcesar-cantidadProcesados))
+				cantidadAProcesarParalelo=cantidadAProcesar-cantidadProcesados;
+				
+			for (int i=1;i<=cantidadAProcesarParalelo;i++){
+				cantidadProcesados++;
+				System.out.println("Creando nuevo hilo:"+cantidadProcesados);
+				new Cliente(grupo,propiedades,cantidadProcesados,consolaHabilitada).start();
+			}
+			
+			//int cantidadHilosActivos=grupo.activeCount(); 
+			
+			synchronized(grupo){
+	           
+					//do{
+						try {
+							
+							grupo.wait();
+							
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					//}while(cantidadHilosActivos==grupo.activeCount());
+	           
+			}
+			
+			if (cantidadProcesados==cantidadAProcesar)
+				existenClientesPendientes=false;
+			
+		}while (existenClientesPendientes);
 		
 	}
 
