@@ -1,12 +1,53 @@
 package simulador.test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisDataException;
 import simulador.cliente.Cliente;
 import simulador.util.Configuracion;
 
 public class Prueba {
+	
+	public static boolean conectar(Properties propiedades){
 
+		String ip=propiedades.getProperty("servidorRedis.ip");
+		String clave=propiedades.getProperty("servidorRedis.clave");
+		int puerto=0;
+		Jedis jedis =null;
+		boolean conexionExistente=true;
+		
+		try{
+		puerto=Integer.valueOf(propiedades.getProperty("servidorRedis.puerto"))
+				.intValue();
+		
+		}catch(NumberFormatException e){			
+			puerto=0;
+			conexionExistente=false;
+		}		
+		
+		try{
+			
+			jedis = new Jedis(ip,puerto);
+			jedis.auth(clave);
+			
+		}catch(JedisDataException e){
+			System.out.println("Error en la autenticacion");
+			e.printStackTrace();
+			conexionExistente=false;
+			}
+		catch(Exception e){
+			System.out.println("El servidor está abajo. Levante el servidor");
+			e.printStackTrace();
+			conexionExistente=false;
+		}
+		//jedis.incr("secuencia");
+		
+		return conexionExistente;
+	}
+	
 	
 	
 	public static void main(String[] args) {
@@ -25,6 +66,11 @@ public class Prueba {
 		
 		consolaHabilitada="true".equals(propiedades.getProperty("cliente.consolaHabilitada"));
 		
+		if (!conectar(propiedades)){
+			System.out.println("Levante el servidor.");
+			return;
+		}
+		
 		ThreadGroup grupo = new ThreadGroup("Clientes");
 		
 		do{
@@ -33,11 +79,16 @@ public class Prueba {
 			
 			if (cantidadAProcesarParalelo>(cantidadAProcesar-cantidadProcesados))
 				cantidadAProcesarParalelo=cantidadAProcesar-cantidadProcesados;
-				
+			
+			List<Cliente> listaClientes= new ArrayList<Cliente>();
+			
 			for (int i=1;i<=cantidadAProcesarParalelo;i++){
+				
 				cantidadProcesados++;
 				System.out.println("Creando nuevo hilo:"+cantidadProcesados);
-				new Cliente(grupo,propiedades,cantidadProcesados,consolaHabilitada).start();
+				Cliente clienteNuevo=new Cliente(grupo,propiedades,cantidadProcesados,consolaHabilitada);
+				listaClientes.add(clienteNuevo);
+				clienteNuevo.start();
 			}
 			
 			//int cantidadHilosActivos=grupo.activeCount(); 
@@ -54,6 +105,10 @@ public class Prueba {
 						}
 					//}while(cantidadHilosActivos==grupo.activeCount());
 	           
+			}
+			
+			for (Cliente cliente : listaClientes) {
+				System.out.println("NombreClientesHilos:"+cliente.getNombreCliente() );
 			}
 			
 			if (cantidadProcesados==cantidadAProcesar)

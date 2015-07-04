@@ -31,7 +31,6 @@ public class Cliente extends Thread {
 		nombreCliente=asignarNombreCliente();
 		controlOperacion= new ControlOperacion(propiedades);
 		
-		
 	}
 	
 	
@@ -286,6 +285,30 @@ public class Cliente extends Thread {
 
 	public void setConsolaHabilitada(boolean consolaHabilitada) {
 		this.consolaHabilitada = consolaHabilitada;
+	}
+
+
+
+	public String getNombreCliente() {
+		return nombreCliente;
+	}
+
+
+
+	public void setNombreCliente(String nombreCliente) {
+		this.nombreCliente = nombreCliente;
+	}
+
+
+
+	public int getIdCliente() {
+		return idCliente;
+	}
+
+
+
+	public void setIdCliente(int idCliente) {
+		this.idCliente = idCliente;
 	}
 	
 }
