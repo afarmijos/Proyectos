@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -69,12 +70,15 @@ FileNotFoundException, IOException{
 		
 	}
 	
-	public static void main (String args[]){
-		
-		//System.out.println(new Aleatorio().generarEnteroAleatorio(2));
-		
-		System.out.println(Utilidades.generarEnteroAleatorio(0,3));
+	public static String formateoToString(double valor, String patron){
+				
+		DecimalFormat decimalFormat = new DecimalFormat(patron);
+
+		return decimalFormat.format(valor);
+	}
 	
+	public static void main(String args[]){
+		System.out.println(formateoToString(1722325823.789867,"####.##"));
 	}
 	
 }
